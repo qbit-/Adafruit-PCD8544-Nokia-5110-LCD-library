@@ -14,33 +14,20 @@ products from Adafruit!
 Written by Limor Fried/Ladyada  for Adafruit Industries.  
 BSD license, check license.txt for more information
 All text above, and the splash screen below must be included in any redistribution
+
+
+Modified for MBED usage and tested with STM32F411RE on a Nucleo board.
+Hardware SPI only, tested using default arduino pin out D11/D13 for MOSI/SCLK,
+Support provided for different pin layouts by James Kidd 2014
 *********************************************************************/
 
-//#include <Wire.h>
-#include <avr/pgmspace.h>
-#if defined(ARDUINO) && ARDUINO >= 100
-  #include "Arduino.h"
-#else
-  #include "WProgram.h"
-#endif
-
-#ifdef __AVR__
-  #include <util/delay.h>
-#endif
-
 #ifndef _BV
-  #define _BV(x) (1 << (x))
+#define _BV( bit ) ( 1<<(bit) )
 #endif
 
-#include <stdlib.h>
-
+#include <stdint.h>
 #include <Adafruit_GFX.h>
 #include "Adafruit_PCD8544.h"
-
-#ifndef _BV
-  #define _BV(bit) (1<<(bit))
-#endif
-
 
 // the memory buffer for the LCD
 uint8_t pcd8544_buffer[LCDWIDTH * LCDHEIGHT / 8] = {
@@ -82,7 +69,7 @@ uint8_t pcd8544_buffer[LCDWIDTH * LCDHEIGHT / 8] = {
 // reduces how much is refreshed, which speeds it up!
 // originally derived from Steve Evans/JCW's mod but cleaned up and
 // optimized
-//#define enablePartialUpdate
+#define enablePartialUpdate
 
 #ifdef enablePartialUpdate
 static uint8_t xUpdateMin, xUpdateMax, yUpdateMin, yUpdateMax;
@@ -99,32 +86,20 @@ static void updateBoundingBox(uint8_t xmin, uint8_t ymin, uint8_t xmax, uint8_t 
 #endif
 }
 
-Adafruit_PCD8544::Adafruit_PCD8544(int8_t SCLK, int8_t DIN, int8_t DC,
-    int8_t CS, int8_t RST) : Adafruit_GFX(LCDWIDTH, LCDHEIGHT) {
-  _din = DIN;
-  _sclk = SCLK;
-  _dc = DC;
-  _rst = RST;
-  _cs = CS;
-}
 
-Adafruit_PCD8544::Adafruit_PCD8544(int8_t SCLK, int8_t DIN, int8_t DC,
-    int8_t RST) : Adafruit_GFX(LCDWIDTH, LCDHEIGHT) {
-  _din = DIN;
-  _sclk = SCLK;
-  _dc = DC;
-  _rst = RST;
-  _cs = -1;
+/*
+ * Set up LCD pins. MOSI and SCLK must be some of the hardware SPI pins
+ */
+Adafruit_PCD8544::Adafruit_PCD8544(PinName RST, PinName CS, PinName DC, PinName MOSI, PinName SCLK ): Adafruit_GFX(LCDWIDTH,LCDHEIGHT), _dc_pin(DC), _rst_pin(RST), _cs_pin(CS) {
+    _din = MOSI;
+    _sclk = SCLK;
 }
-
-Adafruit_PCD8544::Adafruit_PCD8544(int8_t DC, int8_t CS, int8_t RST):
-  Adafruit_GFX(LCDWIDTH, LCDHEIGHT) {
-  // -1 for din and sclk specify using hardware SPI
-  _din = -1;
-  _sclk = -1;
-  _dc = DC;
-  _rst = RST;
-  _cs = CS;
+/*
+ * Set up LCD pins. MOSI and MISO are set to MBED_SPI_MOSI and MBED_SPI_SCK 
+ */
+Adafruit_PCD8544::Adafruit_PCD8544(PinName RST, PinName CS, PinName DC): Adafruit_GFX(LCDWIDTH,LCDHEIGHT), _dc_pin(DC), _rst_pin(RST), _cs_pin(CS) {
+      _din = MBED_SPI_MOSI;
+      _sclk = MBED_SPI_SCK;
 }
 
 
@@ -174,39 +149,40 @@ uint8_t Adafruit_PCD8544::getPixel(int8_t x, int8_t y) {
 
 
 void Adafruit_PCD8544::begin(uint8_t contrast, uint8_t bias) {
+
+
   if (isHardwareSPI()) {
     // Setup hardware SPI.
-    SPI.begin();
-    SPI.setClockDivider(PCD8544_SPI_CLOCK_DIV);
-    SPI.setDataMode(SPI_MODE0);
-    SPI.setBitOrder(MSBFIRST);
+        LcdSPI = new SPI(_din, NC, _sclk);
+        LcdSPI->format(LCD_SPI_BITS, LCD_SPI_MODE);
+        LcdSPI->frequency(LCD_SPI_FREQ);
   }
   else {
     // Setup software SPI.
 
     // Set software SPI specific pin outputs.
-    pinMode(_din, OUTPUT);
+    /* pinMode(_din, OUTPUT);
     pinMode(_sclk, OUTPUT);
 
     // Set software SPI ports and masks.
     clkport     = portOutputRegister(digitalPinToPort(_sclk));
     clkpinmask  = digitalPinToBitMask(_sclk);
     mosiport    = portOutputRegister(digitalPinToPort(_din));
-    mosipinmask = digitalPinToBitMask(_din);
+    mosipinmask = digitalPinToBitMask(_din);*/
   }
 
   // Set common pin outputs.
-  pinMode(_dc, OUTPUT);
+  /*pinMode(_dc, OUTPUT);
   if (_rst > 0)
       pinMode(_rst, OUTPUT);
   if (_cs > 0)
-      pinMode(_cs, OUTPUT);
+      pinMode(_cs, OUTPUT);*/
 
   // toggle RST low to reset
-  if (_rst > 0) {
-    digitalWrite(_rst, LOW);
-    delay(500);
-    digitalWrite(_rst, HIGH);
+  if (_rst_pin > 0) {
+    _rst_pin.write(0);
+    wait_ms(500);
+    _rst_pin.write(1);
   }
 
   // get into the EXTENDED mode!
@@ -220,7 +196,6 @@ void Adafruit_PCD8544::begin(uint8_t contrast, uint8_t bias) {
     contrast = 0x7f;
 
   command( PCD8544_SETVOP | contrast); // Experimentally determined
-
 
   // normal mode
   command(PCD8544_FUNCTIONSET);
@@ -244,39 +219,39 @@ void Adafruit_PCD8544::begin(uint8_t contrast, uint8_t bias) {
 inline void Adafruit_PCD8544::spiWrite(uint8_t d) {
   if (isHardwareSPI()) {
     // Hardware SPI write.
-    SPI.transfer(d);
+    LcdSPI->write(d);//SPI.transfer(d);
   }
-  else {
-    // Software SPI write with bit banging.
-    for(uint8_t bit = 0x80; bit; bit >>= 1) {
-      *clkport &= ~clkpinmask;
-      if(d & bit) *mosiport |=  mosipinmask;
-      else        *mosiport &= ~mosipinmask;
-      *clkport |=  clkpinmask;
-    }
-  }
+  // else {
+  //   // Software SPI write with bit banging.
+  //   for(uint8_t bit = 0x80; bit; bit >>= 1) {
+  //     *clkport &= ~clkpinmask;
+  //     if(d & bit) *mosiport |=  mosipinmask;
+  //     else        *mosiport &= ~mosipinmask;
+  //     *clkport |=  clkpinmask;
+  //   }
+  // }
 }
 
 bool Adafruit_PCD8544::isHardwareSPI() {
-  return (_din == -1 && _sclk == -1);
+  return true;
 }
 
 void Adafruit_PCD8544::command(uint8_t c) {
-  digitalWrite(_dc, LOW);
-  if (_cs > 0)
-    digitalWrite(_cs, LOW);
+  _dc_pin.write(0);//digitalWrite(_dc, LOW);
+  if (_cs_pin > 0)
+    _cs_pin.write(0);//digitalWrite(_cs, LOW);
   spiWrite(c);
-  if (_cs > 0)
-    digitalWrite(_cs, HIGH);
+  if (_cs_pin > 0)
+    _cs_pin.write(1);//digitalWrite(_cs, HIGH);
 }
 
 void Adafruit_PCD8544::data(uint8_t c) {
-  digitalWrite(_dc, HIGH);
-  if (_cs > 0)
-    digitalWrite(_cs, LOW);
+  _dc_pin.write(1);//digitalWrite(_dc, HIGH);
+  if (_cs_pin > 0)
+    _cs_pin.write(0);//digitalWrite(_cs, LOW);
   spiWrite(c);
-  if (_cs > 0)
-    digitalWrite(_cs, HIGH);
+  if (_cs_pin > 0)
+    _cs_pin.write(1);//digitalWrite(_cs, HIGH);
 }
 
 void Adafruit_PCD8544::setContrast(uint8_t val) {
@@ -318,15 +293,15 @@ void Adafruit_PCD8544::display(void) {
 #endif
 
     command(PCD8544_SETXADDR | col);
-
-    digitalWrite(_dc, HIGH);
-    if (_cs > 0)
-      digitalWrite(_cs, LOW);
+    _dc_pin.write(1);
+    //digitalWrite(_dc, HIGH);
+    if (_cs_pin.read() > 0)
+        _cs_pin.write(0);//digitalWrite(_cs, LOW);
     for(; col <= maxcol; col++) {
       spiWrite(pcd8544_buffer[(LCDWIDTH*p)+col]);
     }
-    if (_cs > 0)
-      digitalWrite(_cs, HIGH);
+    if (_cs_pin.read() > 0)
+        _cs_pin.write(1);//digitalWrite(_cs, HIGH);
 
   }
 
