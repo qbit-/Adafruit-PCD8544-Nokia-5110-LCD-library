@@ -28,8 +28,8 @@ by James Kidd 2014
 #define MBED_SPI_MOSI D5
 #define MBED_SPI_SCK D7
 
-#define LCD_SPI_MODE 0
-#define LCD_SPI_BITS 8
+#define LCD_SPI_MODE 0x00
+#define LCD_SPI_BITS 0x08
 
 // Default to max SPI clock speed for PCD8544 of 4 mhz.
 // This can be modified to change the clock speed if necessary (like for supporting other hardware).

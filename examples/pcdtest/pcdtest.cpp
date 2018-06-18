@@ -19,7 +19,6 @@ All text above, and the splash screen must be included in any redistribution
 #include <mbed.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_PCD8544.h>
-#define PROGMEM __attribute__ ((section (".rodata")))
 
 // Hardware SPI (faster, but must use certain hardware pins):
 // SCK is LCD serial clock (SCLK) - this is pin 13 on Arduino Uno
@@ -40,7 +39,7 @@ Adafruit_PCD8544 display = Adafruit_PCD8544(p8, p12, p11);
 #define LOGO16_GLCD_HEIGHT 16
 #define LOGO16_GLCD_WIDTH  16
 
-static const unsigned char PROGMEM logo16_glcd_bmp[] =
+static const unsigned char logo16_glcd_bmp[] =
 { B00000000, B11000000,
   B00000001, B11000000,
   B00000001, B11000000,

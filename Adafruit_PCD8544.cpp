@@ -93,6 +93,10 @@ static void updateBoundingBox(uint8_t xmin, uint8_t ymin, uint8_t xmax, uint8_t 
 Adafruit_PCD8544::Adafruit_PCD8544(PinName RST, PinName CS, PinName DC, PinName MOSI, PinName SCLK ): Adafruit_GFX(LCDWIDTH,LCDHEIGHT), _dc_pin(DC), _rst_pin(RST), _cs_pin(CS) {
     _din = MOSI;
     _sclk = SCLK;
+    _dc_pin  = 0;
+    _rst_pin = 1;
+    _cs_pin = 1;
+
 }
 /*
  * Set up LCD pins. MOSI and MISO are set to MBED_SPI_MOSI and MBED_SPI_SCK 
@@ -100,6 +104,9 @@ Adafruit_PCD8544::Adafruit_PCD8544(PinName RST, PinName CS, PinName DC, PinName 
 Adafruit_PCD8544::Adafruit_PCD8544(PinName RST, PinName CS, PinName DC): Adafruit_GFX(LCDWIDTH,LCDHEIGHT), _dc_pin(DC), _rst_pin(RST), _cs_pin(CS) {
       _din = MBED_SPI_MOSI;
       _sclk = MBED_SPI_SCK;
+      _dc_pin  = 0;
+      _rst_pin = 1;
+      _cs_pin = 1;
 }
 
 
@@ -171,18 +178,11 @@ void Adafruit_PCD8544::begin(uint8_t contrast, uint8_t bias) {
     mosipinmask = digitalPinToBitMask(_din);*/
   }
 
-  // Set common pin outputs.
-  /*pinMode(_dc, OUTPUT);
-  if (_rst > 0)
-      pinMode(_rst, OUTPUT);
-  if (_cs > 0)
-      pinMode(_cs, OUTPUT);*/
-
   // toggle RST low to reset
   if (_rst_pin > 0) {
-    _rst_pin.write(0);
+    _rst_pin = 0;
     wait_ms(500);
-    _rst_pin.write(1);
+    _rst_pin = 1;
   }
 
   // get into the EXTENDED mode!
@@ -237,21 +237,17 @@ bool Adafruit_PCD8544::isHardwareSPI() {
 }
 
 void Adafruit_PCD8544::command(uint8_t c) {
-  _dc_pin.write(0);//digitalWrite(_dc, LOW);
-  if (_cs_pin > 0)
-    _cs_pin.write(0);//digitalWrite(_cs, LOW);
+  _dc_pin = 0;//digitalWrite(_dc, LOW);
+  _cs_pin = 0;//digitalWrite(_cs, LOW);
   spiWrite(c);
-  if (_cs_pin > 0)
-    _cs_pin.write(1);//digitalWrite(_cs, HIGH);
+  _cs_pin = 1;//digitalWrite(_cs, HIGH);
 }
 
 void Adafruit_PCD8544::data(uint8_t c) {
-  _dc_pin.write(1);//digitalWrite(_dc, HIGH);
-  if (_cs_pin > 0)
-    _cs_pin.write(0);//digitalWrite(_cs, LOW);
+  _dc_pin = 1;//digitalWrite(_dc, HIGH);
+  _cs_pin = 0;//digitalWrite(_cs, LOW);
   spiWrite(c);
-  if (_cs_pin > 0)
-    _cs_pin.write(1);//digitalWrite(_cs, HIGH);
+  _cs_pin = 1;//digitalWrite(_cs, HIGH);
 }
 
 void Adafruit_PCD8544::setContrast(uint8_t val) {
